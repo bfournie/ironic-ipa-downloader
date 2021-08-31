@@ -8,6 +8,7 @@ export no_proxy=${no_proxy:-$NO_PROXY}
 
 # Which image should we use
 SNAP=${1:-current-tripleo-rdo}
+IPA_BASEURI=${IPA_BASEURI:-https://images.rdoproject.org/centos8/wallaby/rdo_trunk/$SNAP/}
 
 FILENAME=ironic-python-agent
 FILENAME_EXT=.tar
@@ -22,34 +23,40 @@ if [[ -e /var/tmp/$FILENAME.initramfs && \
       -e /var/tmp/$FILENAME.kernel ]] ; then
     cp /var/tmp/$FILENAME.initramfs $FILENAME.initramfs
     cp /var/tmp/$FILENAME.kernel $FILENAME.kernel
-    cp /var/tmp/$FILENAME.manifest $FILENAME.manifest
-    rm -f /var/tmp/{ironic-python-agent.initramfs,ironic-python-agent.kernel,ironic-python-agent.manifest}
+    # In case of OKD, an IPA image from the current-tripleo-rdo repository is used,
+    # which does not come with a manifest
+    if [[ -e /var/tmp/$FILENAME.manifest ]] ; then
+        cp /var/tmp/$FILENAME.manifest $FILENAME.manifest
+    fi
+    rm -f /var/tmp/$FILENAME.*
     exit 0
 fi
+
+TMPDIR=$(mktemp -d -p /shared/tmp)
 
 # If we have a CACHEURL and nothing has yet been downloaded
 # get header info from the cache
 ls -l
 if [ -n "$CACHEURL" -a ! -e $FFILENAME.headers ] ; then
-    curl --fail -O "$CACHEURL/$FFILENAME.headers" || true
+    curl -g --fail -O "$CACHEURL/$FFILENAME.headers" || true
 fi
 
 # Download the most recent version of IPA
 if [ -e $FFILENAME.headers ] ; then
     ETAG=$(awk '/ETag:/ {print $2}' $FFILENAME.headers | tr -d "\r")
     cd $TMPDIR
-    curl --dump-header $FFILENAME.headers -O https://images.rdoproject.org/stein/rdo_trunk/$SNAP/$FFILENAME --header "If-None-Match: $ETAG"
+    curl -g --dump-header $FFILENAME.headers -O $IPA_BASEURI/$FFILENAME --header "If-None-Match: $ETAG" || cp /shared/html/images/$FFILENAME.headers .
     # curl didn't download anything because we have the ETag already
     # but we don't have it in the images directory
     # Its in the cache, go get it
     ETAG=$(awk '/ETag:/ {print $2}' $FFILENAME.headers | tr -d "\"\r")
     if [ ! -s $FFILENAME -a ! -e /shared/html/images/$FILENAME-$ETAG/$FFILENAME ] ; then
         mv /shared/html/images/$FFILENAME.headers .
-        curl -O "$CACHEURL/$FILENAME-$ETAG/$FFILENAME"
+        curl -g -O "$CACHEURL/$FILENAME-$ETAG/$FFILENAME"
     fi
 else
     cd $TMPDIR
-    curl --dump-header $FFILENAME.headers -O https://images.rdoproject.org/stein/rdo_trunk/$SNAP/$FFILENAME
+    curl -g --dump-header $FFILENAME.headers -O $IPA_BASEURI/$FFILENAME
 fi
 
 if [ -s $FFILENAME ] ; then

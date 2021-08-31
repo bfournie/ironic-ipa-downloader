@@ -1,0 +1,16 @@
+FROM registry.svc.ci.openshift.org/ocp/builder:rhel-8-base-openshift AS builder
+
+COPY ./get-resource.sh /usr/local/bin/get-resource.sh
+
+RUN /usr/local/bin/get-resource.sh
+
+RUN IPA_DIR=$(dirname "$(readlink -e /shared/html/images/ironic-python-agent.initramfs)") && \
+    mv $IPA_DIR/ironic-python-agent.initramfs /var/tmp/ && \
+    mv $IPA_DIR/ironic-python-agent.kernel /var/tmp/
+
+FROM registry.svc.ci.openshift.org/ocp/builder:rhel-8-base-openshift
+
+COPY --from=builder /var/tmp/ironic-python-agent.initramfs /var/tmp/
+COPY --from=builder /var/tmp/ironic-python-agent.kernel /var/tmp/
+
+COPY ./get-resource.sh /usr/local/bin/get-resource.sh
