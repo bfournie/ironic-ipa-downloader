@@ -1,10 +1,10 @@
 FROM registry.ci.openshift.org/ocp/builder:rhel-8-base-openshift-4.10 AS builder
 
 ENV IMAGE_PATH=/usr/share/ironic-images
-ENV IPA_IMAGE_VER=2021.2-20210827.1.el8
+ENV IPA_IMAGE_VER=1:4.10-20211007.1.test.el8
 
 RUN dnf upgrade -y && \
-    dnf install -y "ironic-images-ipa-$(uname -m) >= $IPA_IMAGE_VER" && \
+    dnf install -y "ironic-images-ipa-$(uname -m) = $IPA_IMAGE_VER" && \
     tar -C /var/tmp/ -xvf ${IMAGE_PATH}/ironic-python-agent*.$(uname -m).tar && \
     dnf clean all && \
     rm -rf /var/cache/{yum,dnf}/*
